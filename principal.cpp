@@ -20,8 +20,10 @@ Principal::Principal(QWidget *parent)
     mColor = Qt::black;
     mAncho = DEFAULT_ANCHO;
     mNumLineas = 0;
-    //La forma
-
+    mNumClic = 0;
+    // La forma por defecto es libre
+    mForma = Forma::LIBRE;
+    elegirForma();
 }
 
 Principal::~Principal()
@@ -33,7 +35,7 @@ Principal::~Principal()
 
 void Principal::paintEvent(QPaintEvent *event)
 {
-    // Crear el painter de la ventana principal
+    // Crear el painter local de la ventana principal
     QPainter painter(this);
     // Dibujar la imagen
     painter.drawImage(0, 0, *mImagen);
@@ -43,11 +45,35 @@ void Principal::paintEvent(QPaintEvent *event)
 
 void Principal::mousePressEvent(QMouseEvent *event)
 {
-    // Levanta la bandera (para que se pueda dibujar)
-    mPuedeDibujar = true;
-    // Captura la posición (punto x,y) del mouse
-    mInicial = event->pos();
-    nNumClick++;
+    switch (mForma) {
+    case Forma::LIBRE:
+        // Levanta la bandera (para que se pueda dibujar libre)
+        mPuedeDibujar = true;
+        // Captura la posición (punto x,y) del mouse
+        mInicial = event->pos();
+        break;
+    case Forma::LINEAS:
+        if (mNumClic == 0){
+            mInicial = event->pos();
+        }
+        mNumClic++;
+        break;
+    case Forma::RECTANGULO:
+        if (mNumClic == 0){
+            mInicial = event->pos();
+        }
+        mNumClic++;
+        break;
+    case Forma::CIRCUNFERENCIA:
+        if (mNumClic == 0){
+            mInicial = event->pos();
+        }
+        mNumClic++;
+        break;
+    }
+
+
+
     // Acepta el evento
     event->accept();
 }
@@ -61,35 +87,80 @@ void Principal::mouseMoveEvent(QMouseEvent *event)
         // Salir del método
         return;
     }
-    // Capturar el punto a donde se mueve el mouse
-    mFinal = event->pos();
-    // Crear un pincel y establecer atributos
-    QPen pincel;
-    pincel.setColor(mColor);
-    pincel.setWidth(mAncho);
-    // Dibujar una linea
-    mPainter->setPen(pincel);
-    mPainter->drawLine(mInicial, mFinal);
-    // Mostrar el número de líneas en la barra de estado
-    ui->statusbar->showMessage("Número de líneas: " + QString::number(++mNumLineas));
-    // Actualizar la interfaz (repinta con paintEvent)
-    update();
-    // actualizar el punto inicial
-    mInicial = mFinal;
-}
-
-void Principal::mouseReleaseEvent(QMouseEvent *event)
-{
-    if(mForma == Forma::LINEAS){
+    if (mForma == Forma::LIBRE){
+        // Capturar el punto a donde se mueve el mouse
         mFinal = event->pos();
+        // Crear un pincel y establecer atributos
         QPen pincel;
         pincel.setColor(mColor);
         pincel.setWidth(mAncho);
         // Dibujar una linea
         mPainter->setPen(pincel);
         mPainter->drawLine(mInicial, mFinal);
-
+        // Mostrar el número de líneas en la barra de estado
+        ui->statusbar->showMessage("Número de líneas: " + QString::number(++mNumLineas));
+        // Actualizar la interfaz (repinta con paintEvent)
+        update();
+        // actualizar el punto inicial
+        mInicial = mFinal;
     }
+}
+
+void Principal::mouseReleaseEvent(QMouseEvent *event)
+{
+    if(mForma == Forma::LINEAS && mNumClic == 2){
+        mFinal = event->pos();
+        // Crear un pincel y establecer atributos
+        QPen pincel;
+        pincel.setColor(mColor);
+        pincel.setWidth(mAncho);
+        // Dibujar una linea
+        mPainter->setPen(pincel);
+        mPainter->drawLine(mInicial, mFinal);
+        mNumClic = 0;
+        // Actualizar la interfaz (repinta con paintEvent)
+        update();
+    } else if(mForma == Forma::RECTANGULO && mNumClic == 2){
+        mFinal = event->pos();
+        // Crear un pincel y establecer atributos
+        QPen pincel;
+        pincel.setColor(mColor);
+        pincel.setWidth(mAncho);
+
+        QRect rectangulo(mInicial, mFinal);
+
+        // Dibujar una linea
+        mPainter->setPen(pincel);
+        mPainter->drawRect(rectangulo);
+        mNumClic = 0;
+        // Actualizar la interfaz (repinta con paintEvent)
+        update();
+    }else if (mForma == Forma::CIRCUNFERENCIA && mNumClic == 2) {
+        mFinal = event->pos();
+
+        // Calcular el radio como la distancia entre mInicial y mFinal
+        int radio = qRound(QLineF(mInicial, mFinal).length());
+
+        // Crear un pincel y establecer atributos
+        QPen pincel;
+        pincel.setColor(mColor);
+        pincel.setWidth(mAncho);
+
+        // Crear un rectángulo que contenga el círculo (centro ± radio)
+        QRectF rectanguloCirculo(mInicial.x() - radio, mInicial.y() - radio, 2 * radio, 2 * radio);
+
+        // Dibujar el círculo
+        mPainter->setPen(pincel);
+        mPainter->drawEllipse(rectanguloCirculo);
+
+        // Restablecer el contador de clics
+        mNumClic = 0;
+
+        // Actualizar la interfaz (repinta con paintEvent)
+        update();
+    }
+
+
     // Bajar la bandera (no se puede dibujar)
     mPuedeDibujar = false;
     // Aceptar el vento
@@ -150,40 +221,41 @@ void Principal::on_actionGuardar_triggered()
     }
 }
 
-
-
 void Principal::elegirForma()
 {
-    switch (mForma){
+    switch(mForma){
     case Forma::LINEAS:
         ui->actionLineas->setChecked(true);
         ui->actionLibre->setChecked(false);
         ui->actionRect_nculos->setChecked(false);
         ui->actionCircunferencias->setChecked(false);
-
         break;
     case Forma::LIBRE:
         ui->actionLineas->setChecked(false);
         ui->actionLibre->setChecked(true);
         ui->actionRect_nculos->setChecked(false);
         ui->actionCircunferencias->setChecked(false);
-
         break;
     case Forma::RECTANGULO:
         ui->actionLineas->setChecked(false);
         ui->actionLibre->setChecked(false);
         ui->actionRect_nculos->setChecked(true);
         ui->actionCircunferencias->setChecked(false);
-
         break;
     case Forma::CIRCUNFERENCIA:
         ui->actionLineas->setChecked(false);
         ui->actionLibre->setChecked(false);
         ui->actionRect_nculos->setChecked(false);
         ui->actionCircunferencias->setChecked(true);
-
         break;
     }
+}
+
+
+void Principal::on_actionLibre_triggered()
+{
+    mForma = Forma::LIBRE;
+    elegirForma();
 }
 
 
@@ -206,4 +278,5 @@ void Principal::on_actionCircunferencias_triggered()
     mForma = Forma::CIRCUNFERENCIA;
     elegirForma();
 }
+
 
